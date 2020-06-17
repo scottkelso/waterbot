@@ -1,5 +1,6 @@
 #define AWAKE_INDICATION_PIN LED_BUILTIN
 #define SLEEP_MODE SLEEP_MODE_IDLE
+#define SLEEP_DELAY 1000
 #define TASK_TIME 5000
 
 // Rotary Encoder
