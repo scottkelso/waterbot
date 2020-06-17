@@ -1,20 +1,17 @@
+// Rotary Encoder
+#define CLK_PIN 2   // Generating interrupts using CLK signal
+#define DT_PIN 3    // Reading DT signal
+#define SW_PIN 4    // Reading Push Button switch
+#define RELAY_PIN 6    // https://www.youtube.com/watch?v=uh5dLC6IkQQ
+
+// LCD backlight
+#define BKL 23
+
 #include <LiquidCrystal.h>
 #include <Wire.h>
 #include <DS3231.h>
 
-#define BKL 23
-
-// ******************************* //
-//           PIN SETUP             //
-// ******************************* //
-
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
-
-//TODO: Replace these with #define
-const int pinCLK = 2;   // Generating interrupts using CLK signal
-const int pinDT = 3;    // Reading DT signal
-const int pinSW = 4;    // Reading Push Button switch
-const int relay = 6;    // https://www.youtube.com/watch?v=uh5dLC6IkQQ
 
 // ******************************* //
 //        ROTARY ENCODER SETUP     //
@@ -106,9 +103,9 @@ void shouldWater() {
 }
 
 void waterBurst () {
-  digitalWrite(relay, HIGH);
+  digitalWrite(RELAY_PIN, HIGH);
   delay(500);
-  digitalWrite(relay, LOW);
+  digitalWrite(RELAY_PIN, LOW);
 }
 
 void water () {
@@ -116,14 +113,14 @@ void water () {
   lcd.setCursor(0, 0);
   lcd.print("Watering Now...");
   
-  digitalWrite(relay, HIGH);
+  digitalWrite(RELAY_PIN, HIGH);
   for (int i = waterDuration * 60; i > 0; i--) {
     lcd.setCursor(0, 1);
     lcd.print(i);
     lcd.print(" seconds  ");
     delay(1000);
   }
-  digitalWrite(relay, LOW);
+  digitalWrite(RELAY_PIN, LOW);
   
   lcd.setCursor(0, 0);
   lcd.print("Completed!");
@@ -261,15 +258,15 @@ void showSubMenu (int option) {
 // Interrupt routine runs if CLK goes from HIGH to LOW
 void isr ()  {
   delay(4);  // delay for Debouncing
-  if (digitalRead(pinCLK))
-    rotationdirection = digitalRead(pinDT);
+  if (digitalRead(CLK_PIN))
+    rotationdirection = digitalRead(DT_PIN);
   else
-    rotationdirection = !digitalRead(pinDT);
+    rotationdirection = !digitalRead(DT_PIN);
   TurnDetected = true;
 }
 
 boolean buttonPressed() {
-  if (!(digitalRead(pinSW))) {   // check if button is pressed
+  if (!(digitalRead(SW_PIN))) {   // check if button is pressed
     Serial.println("Button Pressed");
     waterBurst();
     
@@ -312,27 +309,26 @@ int getRotation() {
 void setup() {  
   // relay
   Serial.begin(9600);
-  pinMode(relay, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
 
   // rotary encoder
-  pinMode(pinCLK,INPUT);
-  pinMode(pinDT,INPUT);  
-  pinMode(pinSW,INPUT_PULLUP);
+  pinMode(CLK_PIN,INPUT);
+  pinMode(DT_PIN,INPUT);  
+  pinMode(SW_PIN,INPUT_PULLUP);
   attachInterrupt(0, isr, FALLING); // interrupt 0 always connected to pin 2 on Arduino UNO
 
   Serial.println("Initialize RTC module");
   clock.begin();
   clock.setDateTime(__DATE__, __TIME__);
 
-  
   pinMode(BKL,OUTPUT);
   
   // Testing out LCD backlight
   //TODO: Remove!
   digitalWrite(BKL, HIGH);
-  delay(2000);
+  delay(1000);
   digitalWrite(BKL, LOW);
-  delay(2000);
+  delay(1000);
   digitalWrite(BKL, HIGH);
 
   // LCD Screen
