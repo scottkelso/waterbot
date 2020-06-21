@@ -1,15 +1,19 @@
+// Deep Sleep Schedular
+#define AWAKE_INDICATION_PIN LED_BUILTIN
+#define SLEEP_MODE SLEEP_MODE_IDLE
+#define SLEEP_DELAY 5000
+
 // Rotary Encoder
 #define CLK_PIN 2   // Generating interrupts using CLK signal
 #define DT_PIN 3    // Reading DT signal
 #define SW_PIN 4    // Reading Push Button switch
 #define RELAY_PIN 6    // https://www.youtube.com/watch?v=uh5dLC6IkQQ
-
-// LCD backlight
-#define BKL 23
+#define BKL_PIN 23
 
 #include <LiquidCrystal.h>
 #include <Wire.h>
 #include <DS3231.h>
+#include <DeepSleepScheduler.h>
 
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
@@ -43,7 +47,7 @@ boolean shouldWaterFlag = false;
 // ******************************* //
 //          OTHER SETTINGS         //
 // ******************************* //
-boolean sleeping = false;
+volatile boolean sleeping = false;
 boolean exiting = false;
 unsigned long startTime = millis();
 int currentMenu = 1;
@@ -255,16 +259,6 @@ void showSubMenu (int option) {
 //         ROTARY ENCODER          //
 // ******************************* //
 
-// Interrupt routine runs if CLK goes from HIGH to LOW
-void isr ()  {
-  delay(4);  // delay for Debouncing
-  if (digitalRead(CLK_PIN))
-    rotationdirection = digitalRead(DT_PIN);
-  else
-    rotationdirection = !digitalRead(DT_PIN);
-  TurnDetected = true;
-}
-
 boolean buttonPressed() {
   if (!(digitalRead(SW_PIN))) {   // check if button is pressed
     Serial.println("Button Pressed");
@@ -302,45 +296,7 @@ int getRotation() {
   return directionAngle;
 }
 
-// ******************************* //
-//                MAIN             //
-// ******************************* //
-
-void setup() {  
-  // relay
-  Serial.begin(9600);
-  pinMode(RELAY_PIN, OUTPUT);
-
-  // rotary encoder
-  pinMode(CLK_PIN,INPUT);
-  pinMode(DT_PIN,INPUT);  
-  pinMode(SW_PIN,INPUT_PULLUP);
-  attachInterrupt(0, isr, FALLING); // interrupt 0 always connected to pin 2 on Arduino UNO
-
-  Serial.println("Initialize RTC module");
-  clock.begin();
-  clock.setDateTime(__DATE__, __TIME__);
-
-  pinMode(BKL,OUTPUT);
-  
-  // Testing out LCD backlight
-  //TODO: Remove!
-  digitalWrite(BKL, HIGH);
-  delay(1000);
-  digitalWrite(BKL, LOW);
-  delay(1000);
-  digitalWrite(BKL, HIGH);
-
-  // LCD Screen
-  lcd.begin(14, 1);
-  lcd.print("WATER BOT    ^^,");
-  calc_watering_schedule();
-  print_water_schedule();
-  delay(2000);
-  showMenu();
-}
-
-void loop() {
+void check_inputs() {
   if (buttonPressed()) {
     showSubMenu(currentMenu);
     showMenu();
@@ -356,4 +312,72 @@ void loop() {
   if (shouldWaterFlag) {
     water();
   }
+}
+
+// Interrupt routine runs if CLK goes from HIGH to LOW
+void measure_rotation()  {
+  if (digitalRead(CLK_PIN))
+    rotationdirection = digitalRead(DT_PIN);
+  else
+    rotationdirection = !digitalRead(DT_PIN);
+  TurnDetected = true;
+  Serial.println("Turn detected!");
+  check_inputs();
+  attachInterrupt(digitalPinToInterrupt(CLK_PIN), isr, FALLING);
+}
+
+void isr() {
+  scheduler.scheduleOnce(measure_rotation);
+  // detach interrupt to prevent executing it multiple
+  // times when touching more than once.
+  detachInterrupt(digitalPinToInterrupt(CLK_PIN));
+}
+
+//// Interrupt routine runs if CLK goes from HIGH to LOW
+//void isr ()  {
+//  delay(4);  // delay for Debouncing
+//  if (digitalRead(CLK_PIN))
+//    rotationdirection = digitalRead(DT_PIN);
+//  else
+//    rotationdirection = !digitalRead(DT_PIN);
+//  TurnDetected = true;
+//}
+
+// ******************************* //
+//                MAIN             //
+// ******************************* //
+
+void start_clock() {
+  clock.begin();
+  clock.setDateTime(__DATE__, __TIME__);
+}
+
+void welcome() {
+  // LCD Screen
+  lcd.begin(14, 1);
+  lcd.print("WATER BOT    ^^,");
+}
+
+void setup() {
+  Serial.begin(9600);
+  
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(CLK_PIN,INPUT);
+  pinMode(DT_PIN,INPUT);  
+  pinMode(SW_PIN,INPUT_PULLUP);
+  pinMode(BKL_PIN, OUTPUT);
+  digitalWrite(BKL_PIN, HIGH);
+  
+  attachInterrupt(digitalPinToInterrupt(CLK_PIN), isr, FALLING);
+
+  scheduler.schedule(start_clock);
+  scheduler.schedule(welcome);
+  scheduler.schedule(calc_watering_schedule);
+  scheduler.schedule(print_water_schedule);
+  //TODO: schedule automatic waterings
+  scheduler.scheduleDelayed(showMenu, 2000);
+}
+
+void loop() {
+  scheduler.execute();
 }
