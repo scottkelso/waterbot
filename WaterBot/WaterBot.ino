@@ -1,7 +1,3 @@
-// Deep Sleep Schedular
-#define AWAKE_INDICATION_PIN LED_BUILTIN
-#define SLEEP_MODE SLEEP_MODE_IDLE
-
 // Rotary Encoder
 #define CLK_PIN 2   // Generating interrupts using CLK signal
 #define DT_PIN 3    // Reading DT signal
@@ -314,34 +310,14 @@ void check_inputs() {
 }
 
 // Interrupt routine runs if CLK goes from HIGH to LOW
-void measure_rotation()  {
+void isr ()  {
+  delay(4);  // delay for Debouncing
   if (digitalRead(CLK_PIN))
     rotationdirection = digitalRead(DT_PIN);
   else
     rotationdirection = !digitalRead(DT_PIN);
   TurnDetected = true;
-  Serial.println("Turn detected!");
-  check_inputs();
-  attachInterrupt(digitalPinToInterrupt(CLK_PIN), isr, FALLING);
 }
-
-void isr() {
-  delay(4);
-  scheduler.scheduleDelayed(measure_rotation);
-  // detach interrupt to prevent executing it multiple
-  // times when touching more than once.
-  detachInterrupt(digitalPinToInterrupt(CLK_PIN));
-}
-
-//// Interrupt routine runs if CLK goes from HIGH to LOW
-//void isr ()  {
-//  delay(4);  // delay for Debouncing
-//  if (digitalRead(CLK_PIN))
-//    rotationdirection = digitalRead(DT_PIN);
-//  else
-//    rotationdirection = !digitalRead(DT_PIN);
-//  TurnDetected = true;
-//}
 
 // ******************************* //
 //                MAIN             //
@@ -370,14 +346,15 @@ void setup() {
   
   attachInterrupt(digitalPinToInterrupt(CLK_PIN), isr, FALLING);
 
-  scheduler.schedule(start_clock);
-  scheduler.schedule(welcome);
-  scheduler.schedule(calc_watering_schedule);
-  scheduler.schedule(print_water_schedule);
+  start_clock();
+  welcome();
+  calc_watering_schedule();
+  print_water_schedule();
   //TODO: schedule automatic waterings
-  scheduler.scheduleDelayed(showMenu, 2000);
+  delay(2000);
+  showMenu();
 }
 
 void loop() {
-  scheduler.execute();
+  check_inputs();
 }
