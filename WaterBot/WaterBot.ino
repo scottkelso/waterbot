@@ -1,7 +1,6 @@
 // Deep Sleep Schedular
 #define AWAKE_INDICATION_PIN LED_BUILTIN
 #define SLEEP_MODE SLEEP_MODE_IDLE
-#define SLEEP_DELAY 5000
 
 // Rotary Encoder
 #define CLK_PIN 2   // Generating interrupts using CLK signal
@@ -327,7 +326,8 @@ void measure_rotation()  {
 }
 
 void isr() {
-  scheduler.scheduleOnce(measure_rotation);
+  delay(4);
+  scheduler.scheduleDelayed(measure_rotation);
   // detach interrupt to prevent executing it multiple
   // times when touching more than once.
   detachInterrupt(digitalPinToInterrupt(CLK_PIN));
